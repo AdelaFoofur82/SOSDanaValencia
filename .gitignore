@@ -4,6 +4,8 @@ node_modules/
 # Ignorar archivo package-lock.json
 package-lock.json
 
+# Ignorar archivo .env
+.env
+
 # ajudana
 scrappers/ajudana/data
-scrappers/ajudana/.env
