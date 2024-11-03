@@ -1,71 +1,51 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 
-async function scrapeOffers() {
-    // Inicia Puppeteer
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
+const fetchData = async (url, headers) => {
+  const response = await fetch(url, { headers, method: 'GET' });
+  return response.json();
+};
 
-    try {
-        // Navega a la página
-        await page.goto('https://ajudadana.es/casos-activos', {
-            waitUntil: 'networkidle2', // Espera a que la mayoría de las solicitudes de red se completen
-        });
+require('dotenv').config();
 
-        // Espera a que las ofertas se carguen en la página
-        await page.waitForSelector('.bg-white.p-4.rounded-lg.shadow-lg');
+const headers = {
+  "accept": "*/*",
+  "accept-language": "es-ES,es;q=0.9,de;q=0.8",
+  "accept-profile": "public",
+  "apikey": process.env.AJUDANA_API_KEY,
+  "authorization": `Bearer ${process.env.AJUDANA_API_KEY}`,
+  "priority": "u=1, i",
+  "sec-ch-ua": "\"Chromium\";v=\"130\", \"Google Chrome\";v=\"130\", \"Not?A_Brand\";v=\"99\"",
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": "\"Windows\"",
+  "sec-fetch-dest": "empty",
+  "sec-fetch-mode": "cors",
+  "sec-fetch-site": "cross-site",
+  "x-client-info": "supabase-js-web/2.46.1",
+  "Referer": "https://ajudadana.es/",
+  "Referrer-Policy": "strict-origin-when-cross-origin"
+};
 
-        // Extrae los datos de cada oferta
-        const offers = await page.evaluate(() => {
-            const offerElements = document.querySelectorAll('.bg-white.p-4.rounded-lg.shadow-lg');
-            const extractedOffers = [];
+const getHelpRequestsNecesita = () => fetchData("https://nmvcsenkfqbdlfdtiqdo.supabase.co/rest/v1/help_requests?select=*&type=eq.necesita&order=created_at.desc", headers);
 
-            offerElements.forEach(el => {
-                const title = el.querySelector('h3')?.textContent.trim() || "N/A";
-                const status = el.querySelector('.bg-green-100')?.textContent.trim() || "N/A";
-                const description = el.querySelector('.text-gray-700')?.textContent.trim() || "N/A";
+const getHelpRequestsOfrece = () => fetchData("https://nmvcsenkfqbdlfdtiqdo.supabase.co/rest/v1/help_requests?select=*&type=eq.ofrece&order=created_at.desc", headers);
 
-                const locationElement = Array.from(el.querySelectorAll('span')).find(span => span.textContent.includes("Ubicación:"));
-                const location = locationElement?.nextSibling?.textContent.trim() || "N/A";
+const getCollectionPoints = () => fetchData("https://nmvcsenkfqbdlfdtiqdo.supabase.co/rest/v1/collection_points?select=*&order=created_at.desc", headers);
 
-                const dateElement = Array.from(el.querySelectorAll('span')).find(span => span.textContent.includes("Fecha:"));
-                const date = dateElement?.nextSibling?.textContent.trim() || "N/A";
+const getTowns = () => fetchData("https://nmvcsenkfqbdlfdtiqdo.supabase.co/rest/v1/towns?select=id%2Cname", headers);
 
-                const contactElement = Array.from(el.querySelectorAll('span')).find(span => span.textContent.includes("Contacto:"));
-                const contact = contactElement?.nextSibling?.textContent.trim() || "N/A";
+getHelpRequestsNecesita().then(data => {
+  fs.writeFileSync(__dirname + '/data/help_requests_necesita.json', JSON.stringify(data, null, 2));
+});
 
-                const urgencyElement = Array.from(el.querySelectorAll('span')).find(span => span.textContent.includes("Urgencia:"));
-                const urgency = urgencyElement?.nextSibling?.textContent.trim() || "N/A";
+getHelpRequestsOfrece().then(data => {
+  fs.writeFileSync(__dirname + '/data/help_requests_offer.json', JSON.stringify(data, null, 2));
+});
 
-                const affectedPeopleElement = Array.from(el.querySelectorAll('span')).find(span => span.textContent.includes("Personas afectadas:"));
-                const affectedPeople = affectedPeopleElement?.nextSibling?.textContent.trim() || "N/A";
+getCollectionPoints().then(data => {
+  fs.writeFileSync(__dirname + '/data/collection_points.json', JSON.stringify(data, null, 2));
+});
 
-                extractedOffers.push({
-                    title,
-                    status,
-                    description,
-                    location,
-                    date,
-                    contact,
-                    urgency,
-                    affectedPeople
-                });
-            });
-
-            return extractedOffers;
-        });
-
-        return offers;
-    } catch (error) {
-        console.error('Error al hacer scraping:', error);
-        return [];
-    } finally {
-        await browser.close(); // Cierra el navegador
-    }
-}
-
-scrapeOffers();
-
-const offers = scrapeOffers();
-// save offers
-fs.writeFileSync(__dirname + '/data/ajudadana.json', JSON.stringify(offers, null, 2));
+getTowns().then(data => {
+  fs.writeFileSync(__dirname + '/data/towns.json', JSON.stringify(data, null, 2));
+});
